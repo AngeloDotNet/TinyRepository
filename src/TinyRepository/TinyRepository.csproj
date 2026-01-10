@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <Authors>Angelo Pirola</Authors>
+        <Product>TinyRepository</Product>
+        <Title>TinyRepository</Title>
+        <!--<Title>TinyRepository - A lightweight generic repository for Entity Framework Core</Title>-->
+        <Description>TinyRepository is a lightweight generic repository pattern implementation
+        for Entity Framework Core, designed to simplify data access and management in .NET applications.</Description>
+        <PackageId>TinyRepository</PackageId>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageIconUrl></PackageIconUrl>
+        <PackageTags>repository pattern; entity framework core; data access; generic repository; .NET</PackageTags>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryBranch>main</RepositoryBranch>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.22" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.22">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--<None Include="..\..\identityLibrary.png">
+            <Pack>True</Pack>
+            <PackagePath></PackagePath>
+        </None>-->
+        <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
+</Project>
