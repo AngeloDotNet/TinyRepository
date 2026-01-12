@@ -1,86 +1,68 @@
-# RepositoryPattern (generic, EF Core, .NET 8)
+# Tiny Repository for .NET EF Core
+[![NuGet Version](https://img.shields.io/nuget/v/TinyRepository.svg?style=flat-square)](https://www.nuget.org/packages/TinyRepository/)
 
-Questa libreria fornisce un repository generico basato su EF Core con i principali metodi CRUD (asincroni).
+A lightweight generic repository for Entity Framework Core
+<!--
+This library provides a generic EF Core-based repository with core CRUD (asynchronous) methods.
+-->
 
-Principali componenti:
-- `IEntity<TKey>`: interfaccia base per le entità.
-- `IRepository<T, TKey>`: interfaccia repository generica.
-- `EfRepository<T, TKey>`: implementazione basata su `DbContext`.
-- `IUnitOfWork` / `UnitOfWork<TContext>`: per SaveChanges.
-- Estensioni per registrazione DI.
-- Paging (GetPagedAsync) con pageNumber/pageSize, filtro opzionale e ordering tramite Func<IQueryable<T>, IOrderedQueryable<T>>.
-- Esposizione di IQueryable<T> tramite Query(asNoTracking) per costruire query complesse lato chiamante.
-- Metodo PatchAsync(id, Action<T>) per applicare modifiche incrementali a un'entità.
-- UpdateRangeAsync e RemoveRangeAsync (con firma async, operazioni in-memory su change tracker).
-- PagedResult<T> come risultato del paging (Items, TotalCount, PageNumber, PageSize).
+## 🏷️ Introduction
 
-Esempio di registrazione DI (ASP.NET Core):
-```csharp
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+A lightweight generic repository pattern implementation for Entity Framework Core, designed to simplify data access and management in .NET applications.
 
-builder.Services.AddRepositoryPattern<AppDbContext>();
+<!--
+This NuGet package provides a simple implementation of the Repository and Unit of Work pattern using Entity Framework Core. It provides a generic interface, IRepository<T, TKey>, with common methods for asynchronous CRUD operations, as well as a concrete implementation, EfRepository<T, TKey>, that uses an EF Core DbContext.
+-->
+
+## 🛠️ Installation
+
+### Prerequisites
+
+- .NET 8.0 SDK (latest version)
+
+### Setup
+
+The library is available on [NuGet](https://www.nuget.org/packages/TinyRepository), just search for _Identity.Module.API_ in the Package Manager GUI or run the following command in the .NET CLI:
+
+```shell
+dotnet add package TinyRepository
 ```
 
-Uso in un service:
-```csharp
-public class MyService
-{
-    private readonly IRepository<SampleEntity, int> _repo;
-    private readonly IUnitOfWork _uow;
+> [!TIP]
+> See the [documentation]() for a list of helpful examples.
 
-    public MyService(IRepository<SampleEntity, int> repo, IUnitOfWork uow)
-    {
-        _repo = repo;
-        _uow = uow;
-    }
+<!--
+## 💡 Release Notes
 
-    public async Task CreateAsync(string name)
-    {
-        var entity = new SampleEntity { Name = name, CreatedAt = DateTime.UtcNow };
-        await _repo.AddAsync(entity);
-        await _uow.SaveChangesAsync();
-    }
-}
-```
+Release notes are available [here]().
+-->
 
-Esempio: paging con ordinamento
-```csharp
-// repository iniettato: IRepository<SampleEntity,int> _repo
-var page = 1;
-var pageSize = 10;
+## 📜 License
 
-var paged = await _repo.GetPagedAsync(
-    page,
-    pageSize,
-    orderBy: q => q.OrderBy(e => e.Name),   // oppure q => q.OrderByDescending(...)
-    filter: e => e.Name != null && e.Name.Contains("abc"),
-    asNoTracking: true);
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-Esempio: query complessa tramite IQueryable
-```csharp
-var queryable = _repo.Query(asNoTracking: false); // con tracking se vuoi modificare dopo
-var special = await queryable
-    .Where(e => e.CreatedAt > DateTime.UtcNow.AddDays(-30))
-    .Include(e => EF.Property<object>(e, "Related")) // esempio Include dinamico
-    .OrderBy(e => e.CreatedAt)
-    .ToListAsync();
-```
+## ⭐ Give a Star
 
-Esempio: PatchAsync
-```csharp
-var success = await _repo.PatchAsync(5, entity => {
-    entity.Name = "Nuovo nome";
-});
-if (success) await uow.SaveChangesAsync();
-```
+Don't forget that if you find this project helpful, please give it a ⭐ on GitHub to show your support and help others discover it.
+
+## 🤝 Contributing
+
+The project is constantly evolving. Contributions are always welcome. Feel free to report issues and submit pull requests to the repository, following the steps below:
+
+1. Fork the repository
+2. Create a feature branch (starting from the develop branch)
+3. Make your changes
+4. Submit a pull requests (targeting develop)
 
 <!--
 Note:
 - L'implementazione non chiama SaveChanges internamente su Add/Update/Remove: il commit è responsabilità dell'unit-of-work.
 - Puoi estendere `EfRepository` aggiungendo metodi per paging, projection, includi (Include), ecc.
 - Se preferisci metodi sincroni, puoi aggiungerli ma in app moderne è preferibile usare gli async.
+
 - Le operazioni Add/Update/Remove/Range non chiamano SaveChanges internamente; è responsabilità dell'UnitOfWork/Service chiamante effettuare il commit.
 - GetPagedAsync senza orderBy non garantisce ordine deterministico; è consigliato passare un orderBy per paginazione affidabile.
+
+- L'ordinamento dinamico usa expressions costruite a runtime; se passi un nome di proprietà non valido verrà lanciata un'eccezione. Per sicurezza, validare i nomi prima in scenari esposti all'utente.
+- Quando usi paginazione fornisci un ordine deterministico (orderBy o orderByProperty) per risultati coerenti tra pagine.
 -->
