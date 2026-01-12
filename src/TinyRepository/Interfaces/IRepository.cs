@@ -23,29 +23,23 @@ public interface IRepository<T, TKey>
     Task RemoveRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default);
     Task RemoveByIdAsync(TKey id, CancellationToken cancellationToken = default);
 
-    // Patch: apply a small change without replacing the whole object
-    /// <summary>
-    /// Finds the entity by id (tracked), applies the provided patch action and marks it modified.
-    /// Returns true if entity found and patched; false if not found.
-    /// </summary>
+    // Patch
     Task<bool> PatchAsync(TKey id, Action<T> patchAction, CancellationToken cancellationToken = default);
 
     // Expose queryable for advanced queries (caller responsible for materialization)
-    /// <summary>
-    /// Returns an IQueryable<T> to allow callers to build complex queries. If asNoTracking is true, the returned query has AsNoTracking applied.
-    /// </summary>
     IQueryable<T> Query(bool asNoTracking = true);
+    IQueryable<T> Query(bool asNoTracking = true, params Expression<Func<T, object>>[] includes);
 
     IQueryable<T> Query(Expression<Func<T, bool>> predicate, bool asNoTracking = true);
+    IQueryable<T> Query(Expression<Func<T, bool>> predicate, bool asNoTracking = true, params Expression<Func<T, object>>[] includes);
 
-    // Paging with optional filter and ordering function
-    /// <summary>
-    /// Returns a PagedResult containing items for the specified page and the total count matching the filter.
-    /// Use orderBy to provide ordering: q => q.OrderBy(x => x.Name) or q => q.OrderByDescending(...)
-    /// If orderBy is null the underlying provider will not apply a deterministic order (use at your risk).
-    /// </summary>
+    // Paging with optional filter and ordering function or dynamic ordering by property name
     Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
         Expression<Func<T, bool>>? filter = null, bool asNoTracking = true, CancellationToken cancellationToken = default);
+
+    // Get paged with dynamic ordering by property name (supports nested properties "Author.Name")
+    Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, string? orderByProperty, bool descending = false, Expression<Func<T, bool>>? filter = null,
+        bool asNoTracking = true, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes);
 
     Task<int> CountAsync(CancellationToken cancellationToken = default);
     Task<bool> ExistsAsync(TKey id, CancellationToken cancellationToken = default);
