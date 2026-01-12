@@ -14,7 +14,7 @@ v.1.0.5
 - Enhancement: UpdateRangeAsync and RemoveRangeAsync (with async signature, in-memory operations on change tracker).
 - Enhancement: PagedResult<T> as paging result (Items, TotalCount, PageNumber, PageSize).
 
-v.1.0.x
+v.1.0.8
 
 - Enhancement: Dynamic ordering helper: You can pass the property name as a string (e.g., "Name" or "Author.Name") to GetPagedAsync.
 - Enhancement: Query overload with params Expression<Func<T, object>>[] includes to conveniently include navigation properties.
