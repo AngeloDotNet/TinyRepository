@@ -1,3 +1,5 @@
+﻿### 💡 Release Notes
+
 v.1.0.1
 
 - Enhancement: `IEntity<TKey>`: Basic interface for entities.

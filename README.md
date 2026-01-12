@@ -29,13 +29,11 @@ dotnet add package TinyRepository
 ```
 
 > [!TIP]
-> See the [documentation]() for a list of helpful examples.
+> See the [documentation](https://github.com/AngeloDotNet/TinyRepository/tree/main/docs) for a list of helpful examples.
 
-<!--
 ## 💡 Release Notes
 
-Release notes are available [here]().
--->
+See the [release notes](https://github.com/AngeloDotNet/TinyRepository/blob/main/RELEASE-NOTES.md) page for the latest updates and changes.
 
 ## 📜 License
 
@@ -54,15 +52,8 @@ The project is constantly evolving. Contributions are always welcome. Feel free 
 3. Make your changes
 4. Submit a pull requests (targeting develop)
 
-<!--
-Note:
-- L'implementazione non chiama SaveChanges internamente su Add/Update/Remove: il commit è responsabilità dell'unit-of-work.
-- Puoi estendere `EfRepository` aggiungendo metodi per paging, projection, includi (Include), ecc.
-- Se preferisci metodi sincroni, puoi aggiungerli ma in app moderne è preferibile usare gli async.
+## 🆘 Support
 
-- Le operazioni Add/Update/Remove/Range non chiamano SaveChanges internamente; è responsabilità dell'UnitOfWork/Service chiamante effettuare il commit.
-- GetPagedAsync senza orderBy non garantisce ordine deterministico; è consigliato passare un orderBy per paginazione affidabile.
+If you find this project helpful, consider buying me a coffee!
 
-- L'ordinamento dinamico usa expressions costruite a runtime; se passi un nome di proprietà non valido verrà lanciata un'eccezione. Per sicurezza, validare i nomi prima in scenari esposti all'utente.
-- Quando usi paginazione fornisci un ordine deterministico (orderBy o orderByProperty) per risultati coerenti tra pagine.
--->
+<a href="https://www.buymeacoffee.com/angelodotnet" target="_blank"><img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00.svg?style=for-the-badge&logo=Buy-Me-A-Coffee&logoColor=black"></a>
