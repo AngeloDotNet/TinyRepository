@@ -31,10 +31,6 @@ dotnet add package TinyRepository
 > [!TIP]
 > See the [documentation](https://github.com/AngeloDotNet/TinyRepository/tree/main/docs) for a list of helpful examples.
 
-## 💡 Release Notes
-
-See the [release notes](https://github.com/AngeloDotNet/TinyRepository/blob/main/RELEASE-NOTES.md) page for the latest updates and changes.
-
 ## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
