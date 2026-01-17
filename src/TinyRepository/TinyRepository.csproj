@@ -7,7 +7,6 @@
         <Authors>Angelo Pirola</Authors>
         <Product>TinyRepository</Product>
         <Title>TinyRepository</Title>
-        <!--<Title>TinyRepository - A lightweight generic repository for Entity Framework Core</Title>-->
         <Description>TinyRepository is a lightweight generic repository pattern implementation
         for Entity Framework Core, designed to simplify data access and management in .NET applications.</Description>
         <PackageId>TinyRepository</PackageId>
