@@ -1,12 +1,11 @@
 using System.Linq.Expressions;
 using TinyRepository.Entities;
 using TinyRepository.Paging;
+using TinyRepository.Sorting;
 
 namespace TinyRepository.Interfaces;
 
-public interface IRepository<T, TKey>
-        where T : class, IEntity<TKey>
-        where TKey : IEquatable<TKey>
+public interface IRepository<T, TKey> where T : class, IEntity<TKey> where TKey : IEquatable<TKey>
 {
     // Basic CRUD
     Task<T?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default);
@@ -39,6 +38,10 @@ public interface IRepository<T, TKey>
 
     // Get paged with dynamic ordering by property name (supports nested properties "Author.Name")
     Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, string? orderByProperty, bool descending = false, Expression<Func<T, bool>>? filter = null,
+        bool asNoTracking = true, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes);
+
+    // Get paged with multiple sort descriptors (property + direction)
+    Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, IEnumerable<SortDescriptor>? sortDescriptors, Expression<Func<T, bool>>? filter = null,
         bool asNoTracking = true, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes);
 
     Task<int> CountAsync(CancellationToken cancellationToken = default);
