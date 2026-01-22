@@ -11,7 +11,7 @@
         for Entity Framework Core, designed to simplify data access and management in .NET applications.</Description>
         <PackageId>TinyRepository</PackageId>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <PackageIconUrl></PackageIconUrl>
+        <PackageIconUrl>LibraryTools.png</PackageIconUrl>
         <PackageTags>repository pattern; entity framework core; data access; generic repository; .NET</PackageTags>
         <RepositoryType>git</RepositoryType>
         <RepositoryBranch>main</RepositoryBranch>
