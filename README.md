@@ -48,8 +48,14 @@ The project is constantly evolving. Contributions are always welcome. Feel free 
 3. Make your changes
 4. Submit a pull requests (targeting develop)
 
+<!--
 ## 🆘 Support
+-->
 
-If you find this project helpful, consider buying me a coffee!
+## ☕ Buy Me a Coffee
 
+If you find this project helpful, consider [buying me a coffee](https://www.buymeacoffee.com/angelodotnet)!
+
+<!--
 <a href="https://www.buymeacoffee.com/angelodotnet" target="_blank"><img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00.svg?style=for-the-badge&logo=Buy-Me-A-Coffee&logoColor=black"></a>
+-->
