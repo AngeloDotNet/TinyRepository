@@ -27,7 +27,16 @@ public class EfRepository<T, TKey> : IRepository<T, TKey>
         try
         {
             var provider = serviceProvider?.GetService<IPropertyWhitelistProvider<T>>();
-            allowedProperties = provider?.GetAllowedProperties();
+            if (provider != null)
+            {
+                allowedProperties = provider.GetAllowedProperties();
+            }
+            else
+            {
+                // fallback: scan attributes [Orderable] on T and related types
+                var scanned = OrderablePropertyScanner.GetOrderableProperties(typeof(T));
+                allowedProperties = scanned.Any() ? scanned : null;
+            }
         }
         catch
         {
