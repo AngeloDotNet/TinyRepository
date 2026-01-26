@@ -32,6 +32,9 @@ public interface IRepository<T, TKey> where T : class, IEntity<TKey> where TKey 
     IQueryable<T> Query(Expression<Func<T, bool>> predicate, bool asNoTracking = true);
     IQueryable<T> Query(Expression<Func<T, bool>> predicate, bool asNoTracking = true, params Expression<Func<T, object>>[] includes);
 
+    IQueryable<T> Query(bool asNoTracking = true, params string[] includePaths);
+    IQueryable<T> Query(Expression<Func<T, bool>> predicate, bool asNoTracking = true, params string[] includePaths);
+
     // Paging with optional filter and ordering function or dynamic ordering by property name
     Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
         Expression<Func<T, bool>>? filter = null, bool asNoTracking = true, CancellationToken cancellationToken = default);
@@ -43,6 +46,14 @@ public interface IRepository<T, TKey> where T : class, IEntity<TKey> where TKey 
     // Get paged with multiple sort descriptors (property + direction)
     Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, IEnumerable<SortDescriptor>? sortDescriptors, Expression<Func<T, bool>>? filter = null,
         bool asNoTracking = true, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes);
+
+    // Get paged with dynamic ordering by property name (supports nested properties "Author.Name")
+    Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, string? orderByProperty, bool descending = false, Expression<Func<T, bool>>? filter = null,
+        bool asNoTracking = true, CancellationToken cancellationToken = default, params string[] includePaths);
+
+    // Get paged with multiple sort descriptors (property + direction)
+    Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, IEnumerable<SortDescriptor>? sortDescriptors, Expression<Func<T, bool>>? filter = null,
+        bool asNoTracking = true, CancellationToken cancellationToken = default, params string[] includePaths);
 
     Task<int> CountAsync(CancellationToken cancellationToken = default);
     Task<bool> ExistsAsync(TKey id, CancellationToken cancellationToken = default);
