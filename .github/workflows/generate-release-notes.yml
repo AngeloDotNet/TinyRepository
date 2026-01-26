@@ -6,8 +6,8 @@ name: Generate Release Notes
 #       - 'v*'
 on:
   push:
-    branches: [ main ]
-    paths: [ 'src/TinyRepository/**' ]
+    # branches: [ main ]
+    # paths: [ 'src/TinyRepository/**' ]
     tags:
         - 'TinyRepository*'
   workflow_dispatch: 
