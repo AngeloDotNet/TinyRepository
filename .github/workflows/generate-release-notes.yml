@@ -1,4 +1,4 @@
-name: generate release notes
+name: Generate Release Notes
 
 # on:
 #   push:
@@ -8,6 +8,8 @@ on:
   push:
     branches: [ main ]
     paths: [ 'src/TinyRepository/**' ]
+    tags:
+        - 'TinyRepository*'
   workflow_dispatch: 
 
 jobs:
