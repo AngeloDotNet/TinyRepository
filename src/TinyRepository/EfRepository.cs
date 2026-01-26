@@ -44,53 +44,27 @@ public class EfRepository<T, TKey> : IRepository<T, TKey>
         }
     }
 
-    public virtual async Task<T?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default)
-    {
-        return await dbSet.FindAsync([id], cancellationToken);
-    }
-
-    public virtual async Task<IEnumerable<T>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        return await dbSet.AsNoTracking().ToListAsync(cancellationToken);
-    }
-
+    public virtual async Task<T?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default) => await dbSet.FindAsync([id], cancellationToken);
+    public virtual async Task<IEnumerable<T>> GetAllAsync(CancellationToken cancellationToken = default) => await dbSet.AsNoTracking().ToListAsync(cancellationToken);
     public virtual async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
-    {
-        return await dbSet.AsNoTracking().Where(predicate).ToListAsync(cancellationToken);
-    }
+        => await dbSet.AsNoTracking().Where(predicate).ToListAsync(cancellationToken);
 
-    public virtual async Task AddAsync(T entity, CancellationToken cancellationToken = default)
-    {
-        await dbSet.AddAsync(entity, cancellationToken);
-    }
+    public virtual async Task AddAsync(T entity, CancellationToken cancellationToken = default) => await dbSet.AddAsync(entity, cancellationToken);
+    public virtual async Task AddRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default) => await dbSet.AddRangeAsync(entities, cancellationToken);
 
-    public virtual async Task AddRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default)
-    {
-        await dbSet.AddRangeAsync(entities, cancellationToken);
-    }
-
-    public virtual void Update(T entity)
-    {
-        dbSet.Update(entity);
-    }
-
+    public virtual void Update(T entity) => dbSet.Update(entity);
     public virtual Task UpdateRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default)
     {
         dbSet.UpdateRange(entities);
         return Task.CompletedTask;
     }
 
-    public virtual void Remove(T entity)
-    {
-        dbSet.Remove(entity);
-    }
-
+    public virtual void Remove(T entity) => dbSet.Remove(entity);
     public virtual Task RemoveRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default)
     {
         dbSet.RemoveRange(entities);
         return Task.CompletedTask;
     }
-
     public virtual async Task RemoveByIdAsync(TKey id, CancellationToken cancellationToken = default)
     {
         var entity = await GetByIdAsync(id, cancellationToken);
@@ -119,32 +93,34 @@ public class EfRepository<T, TKey> : IRepository<T, TKey>
         }
     }
 
-    // Query overloads with includes
-    public virtual IQueryable<T> Query(bool asNoTracking = true)
-    {
-        return asNoTracking ? dbSet.AsNoTracking() : dbSet;
-    }
-
+    public virtual IQueryable<T> Query(bool asNoTracking = true) => asNoTracking ? dbSet.AsNoTracking() : dbSet;
     public virtual IQueryable<T> Query(bool asNoTracking = true, params Expression<Func<T, object>>[] includes)
     {
         var q = asNoTracking ? dbSet.AsNoTracking() : dbSet;
-
         return q.IncludeMultiple(includes);
+    }
+    public virtual IQueryable<T> Query(bool asNoTracking = true, params string[] includePaths)
+    {
+        var q = asNoTracking ? dbSet.AsNoTracking() : dbSet;
+        return q.IncludePaths(includePaths);
     }
 
     public virtual IQueryable<T> Query(Expression<Func<T, bool>> predicate, bool asNoTracking = true)
     {
         var q = asNoTracking ? dbSet.AsNoTracking() : dbSet;
-
         return q.Where(predicate);
     }
-
     public virtual IQueryable<T> Query(Expression<Func<T, bool>> predicate, bool asNoTracking = true, params Expression<Func<T, object>>[] includes)
     {
         var q = asNoTracking ? dbSet.AsNoTracking() : dbSet;
         q = q.Where(predicate);
-
         return q.IncludeMultiple(includes);
+    }
+    public virtual IQueryable<T> Query(Expression<Func<T, bool>> predicate, bool asNoTracking = true, params string[] includePaths)
+    {
+        var q = asNoTracking ? dbSet.AsNoTracking() : dbSet;
+        q = q.Where(predicate);
+        return q.IncludePaths(includePaths);
     }
 
     public virtual async Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
@@ -174,8 +150,7 @@ public class EfRepository<T, TKey> : IRepository<T, TKey>
     }
 
     public virtual async Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, string? orderByProperty, bool descending = false,
-        Expression<Func<T, bool>>? filter = null, bool asNoTracking = true, CancellationToken cancellationToken = default,
-        params Expression<Func<T, object>>[] includes)
+        Expression<Func<T, bool>>? filter = null, bool asNoTracking = true, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageNumber);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
@@ -211,10 +186,41 @@ public class EfRepository<T, TKey> : IRepository<T, TKey>
 
         return new PagedResult<T>(items, totalCount, pageNumber, pageSize);
     }
+    public virtual async Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, string? orderByProperty, bool descending = false,
+        Expression<Func<T, bool>>? filter = null, bool asNoTracking = true, CancellationToken cancellationToken = default, params string[] includePaths)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageNumber);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
+
+        var query = asNoTracking ? dbSet.AsNoTracking().AsQueryable() : dbSet.AsQueryable();
+
+        query = query.IncludePaths(includePaths);
+
+        if (filter is not null)
+            query = query.Where(filter);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(orderByProperty))
+        {
+            if (allowedProperties != null)
+            {
+                var allowedSet = new HashSet<string>(allowedProperties, StringComparer.OrdinalIgnoreCase);
+                if (!allowedSet.Contains(orderByProperty))
+                    throw new ArgumentException($"Property '{orderByProperty}' is not allowed for ordering.");
+            }
+
+            query = query.ApplyOrderByProperty(orderByProperty, descending);
+        }
+
+        var skip = (pageNumber - 1) * pageSize;
+        var items = await query.Skip(skip).Take(pageSize).ToListAsync(cancellationToken);
+
+        return new PagedResult<T>(items, totalCount, pageNumber, pageSize);
+    }
 
     public virtual async Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, IEnumerable<SortDescriptor>? sortDescriptors,
-        Expression<Func<T, bool>>? filter = null, bool asNoTracking = true, CancellationToken cancellationToken = default,
-        params Expression<Func<T, object>>[] includes)
+        Expression<Func<T, bool>>? filter = null, bool asNoTracking = true, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageNumber);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
@@ -240,12 +246,33 @@ public class EfRepository<T, TKey> : IRepository<T, TKey>
 
         return new PagedResult<T>(items, totalCount, pageNumber, pageSize);
     }
-
-    public virtual async Task<int> CountAsync(CancellationToken cancellationToken = default)
+    public virtual async Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, IEnumerable<SortDescriptor>? sortDescriptors,
+        Expression<Func<T, bool>>? filter = null, bool asNoTracking = true, CancellationToken cancellationToken = default, params string[] includePaths)
     {
-        return await dbSet.CountAsync(cancellationToken);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageNumber);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
+
+        var query = asNoTracking ? dbSet.AsNoTracking().AsQueryable() : dbSet.AsQueryable();
+
+        query = query.IncludePaths(includePaths);
+
+        if (filter is not null)
+            query = query.Where(filter);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        if (sortDescriptors != null)
+        {
+            query = query.ApplyOrdering(sortDescriptors, allowedProperties);
+        }
+
+        var skip = (pageNumber - 1) * pageSize;
+        var items = await query.Skip(skip).Take(pageSize).ToListAsync(cancellationToken);
+
+        return new PagedResult<T>(items, totalCount, pageNumber, pageSize);
     }
 
+    public virtual async Task<int> CountAsync(CancellationToken cancellationToken = default) => await dbSet.CountAsync(cancellationToken);
     public virtual async Task<bool> ExistsAsync(TKey id, CancellationToken cancellationToken = default)
     {
         var entity = await GetByIdAsync(id, cancellationToken);
