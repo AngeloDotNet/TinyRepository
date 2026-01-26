@@ -8,9 +8,6 @@ namespace TinyRepository.Extensions;
 
 public static class QueryableExtensions
 {
-    /// <summary>
-    /// Applica Include multipli.
-    /// </summary>
     public static IQueryable<T> IncludeMultiple<T>(this IQueryable<T> query, params Expression<Func<T, object>>[] includes) where T : class
     {
         if (includes == null || includes.Length == 0)
@@ -27,10 +24,28 @@ public static class QueryableExtensions
         return query;
     }
 
-    /// <summary>
-    /// Applica ordering dinamico per singola proprietà (supporta percorsi con dot, es. "Author.Name").
-    /// Se orderByProperty è null/empty restituisce la query originale.
-    /// </summary>
+    public static IQueryable<T> IncludePaths<T>(this IQueryable<T> query, params string[] includePaths) where T : class
+    {
+        if (includePaths == null || includePaths.Length == 0)
+        {
+            return query;
+        }
+
+        // Rimuoviamo duplicati e ordiniamo in modo che i percorsi "padre" vengano prima dei figli.
+        // Questo non è strettamente necessario per EF Core, ma aiuta in scenari di costruzione di query leggibili.
+        var normalized = NormalizeAndOrderPaths(includePaths);
+
+        foreach (var path in normalized)
+        {
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                query = query.Include(path);
+            }
+        }
+
+        return query;
+    }
+
     public static IQueryable<T> ApplyOrderByProperty<T>(this IQueryable<T> source, string? orderByProperty, bool descending = false)
     {
         if (string.IsNullOrWhiteSpace(orderByProperty))
@@ -71,11 +86,6 @@ public static class QueryableExtensions
         return ordered;
     }
 
-    /// <summary>
-    /// Applica multiple ordinamenti (OrderBy / ThenBy) in base ai SortDescriptor.
-    /// Se allowedProperties è non-null e non vuota, ogni property deve far parte della whitelist o viene lanciata un'eccezione.
-    /// Supporta proprietà annidate con dot path ("Author.LastName").
-    /// </summary>
     public static IQueryable<T> ApplyOrdering<T>(this IQueryable<T> source, IEnumerable<SortDescriptor> sortDescriptors,
         IEnumerable<string>? allowedProperties = null)
     {
@@ -141,8 +151,7 @@ public static class QueryableExtensions
 
             var queryableType = typeof(Queryable);
             var methods = queryableType.GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .Where(m => m.Name == methodName && m.GetParameters().Length == 2)
-                .ToList();
+                .Where(m => m.Name == methodName && m.GetParameters().Length == 2).ToList();
 
             var method = methods.FirstOrDefault();
 
@@ -164,5 +173,23 @@ public static class QueryableExtensions
         }
 
         return orderedQuery ?? source;
+    }
+
+    private static string[] NormalizeAndOrderPaths(string[] includePaths)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in includePaths)
+        {
+            if (string.IsNullOrWhiteSpace(p))
+            {
+                continue;
+            }
+
+            var trimmed = p.Trim();
+            set.Add(trimmed);
+        }
+
+        // Order by number of segments ascending: parents before children
+        return set.OrderBy(p => p.Count(c => c == '.')).ThenBy(p => p, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 }
