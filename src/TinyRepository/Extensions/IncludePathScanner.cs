@@ -3,11 +3,11 @@ using TinyRepository.Sorting;
 
 namespace TinyRepository.Extensions;
 
-public static class OrderablePropertyScanner
+public static class IncludePathScanner
 {
     private const int DefaultMaxDepth = 5;
-    public static IEnumerable<string> GetOrderableProperties<T>() => GetOrderableProperties(typeof(T), DefaultMaxDepth);
-    public static IEnumerable<string> GetOrderableProperties(Type type, int maxDepth = DefaultMaxDepth)
+    public static IEnumerable<string> GetIncludePaths<T>() => GetIncludePaths(typeof(T), DefaultMaxDepth);
+    public static IEnumerable<string> GetIncludePaths(Type type, int maxDepth = DefaultMaxDepth)
     {
         var results = new List<string>();
         var visited = new HashSet<Type>();
@@ -36,6 +36,7 @@ public static class OrderablePropertyScanner
         visited.Add(type);
 
         var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
         foreach (var p in props)
         {
             if (p.GetIndexParameters().Length > 0)
@@ -43,11 +44,11 @@ public static class OrderablePropertyScanner
                 continue;
             }
 
-            var orderableAttr = p.GetCustomAttribute<OrderableAttribute>(inherit: true);
+            var includeAttr = p.GetCustomAttribute<IncludeAllowedAttribute>(inherit: true);
             var propName = p.Name;
-            var effectiveName = orderableAttr?.Alias ?? propName;
+            var effectiveName = includeAttr?.Alias ?? propName;
 
-            if (orderableAttr != null)
+            if (includeAttr != null)
             {
                 var path = string.IsNullOrEmpty(prefix) ? effectiveName : $"{prefix}.{effectiveName}";
                 results.Add(path);
@@ -55,6 +56,7 @@ public static class OrderablePropertyScanner
 
             var propertyType = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;
 
+            // Dont recurse into collections
             if (IsCollectionType(propertyType) || IsPrimitiveOrKnownSimple(propertyType))
             {
                 continue;

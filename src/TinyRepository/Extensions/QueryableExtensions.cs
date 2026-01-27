@@ -8,7 +8,8 @@ namespace TinyRepository.Extensions;
 
 public static class QueryableExtensions
 {
-    public static IQueryable<T> IncludeMultiple<T>(this IQueryable<T> query, params Expression<Func<T, object>>[] includes) where T : class
+    public static IQueryable<T> IncludeMultiple<T>(this IQueryable<T> query, params Expression<Func<T, object>>[] includes)
+        where T : class
     {
         if (includes == null || includes.Length == 0)
         {
@@ -24,15 +25,14 @@ public static class QueryableExtensions
         return query;
     }
 
-    public static IQueryable<T> IncludePaths<T>(this IQueryable<T> query, params string[] includePaths) where T : class
+    public static IQueryable<T> IncludePaths<T>(this IQueryable<T> query, params string[] includePaths)
+        where T : class
     {
         if (includePaths == null || includePaths.Length == 0)
         {
             return query;
         }
 
-        // Rimuoviamo duplicati e ordiniamo in modo che i percorsi "padre" vengano prima dei figli.
-        // Questo non è strettamente necessario per EF Core, ma aiuta in scenari di costruzione di query leggibili.
         var normalized = NormalizeAndOrderPaths(includePaths);
 
         foreach (var path in normalized)
@@ -46,6 +46,23 @@ public static class QueryableExtensions
         return query;
     }
 
+    private static string[] NormalizeAndOrderPaths(string[] includePaths)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in includePaths)
+        {
+            if (string.IsNullOrWhiteSpace(p))
+            {
+                continue;
+            }
+
+            var trimmed = p.Trim();
+            set.Add(trimmed);
+        }
+
+        return set.OrderBy(p => p.Count(c => c == '.')).ThenBy(p => p, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
     public static IQueryable<T> ApplyOrderByProperty<T>(this IQueryable<T> source, string? orderByProperty, bool descending = false)
     {
         if (string.IsNullOrWhiteSpace(orderByProperty))
@@ -55,7 +72,6 @@ public static class QueryableExtensions
 
         var parameter = Expression.Parameter(typeof(T), "x");
         Expression? body = parameter;
-
         foreach (var member in orderByProperty.Split('.'))
         {
             body = Expression.PropertyOrField(body!, member);
@@ -70,10 +86,11 @@ public static class QueryableExtensions
         var lambda = Expression.Lambda(delegateType, body, parameter);
 
         var methodName = descending ? "OrderByDescending" : "OrderBy";
-        var queryableType = typeof(Queryable);
 
-        var orderingMethod = queryableType.GetMethods(BindingFlags.Public | BindingFlags.Static)
-            .FirstOrDefault(m => m.Name == methodName && m.GetParameters().Length == 2);
+        var queryableType = typeof(Queryable);
+        MethodInfo? orderingMethod = queryableType.GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.Name == methodName && m.GetParameters().Length == 2)
+            .FirstOrDefault();
 
         if (orderingMethod == null)
         {
@@ -81,13 +98,11 @@ public static class QueryableExtensions
         }
 
         var genericMethod = orderingMethod.MakeGenericMethod(typeof(T), body.Type);
-        var ordered = (IQueryable<T>)genericMethod.Invoke(null, [source, lambda])!;
-
+        var ordered = (IQueryable<T>)genericMethod.Invoke(null, new object[] { source, lambda })!;
         return ordered;
     }
 
-    public static IQueryable<T> ApplyOrdering<T>(this IQueryable<T> source, IEnumerable<SortDescriptor> sortDescriptors,
-        IEnumerable<string>? allowedProperties = null)
+    public static IQueryable<T> ApplyOrdering<T>(this IQueryable<T> source, IEnumerable<SortDescriptor> sortDescriptors, IEnumerable<string>? allowedProperties = null)
     {
         if (sortDescriptors == null)
         {
@@ -95,17 +110,14 @@ public static class QueryableExtensions
         }
 
         var descriptors = sortDescriptors.ToArray();
-
         if (descriptors.Length == 0)
         {
             return source;
         }
 
-        // VALIDAZIONE WHITELIST (se fornita)
         if (allowedProperties != null)
         {
             var allowedSet = new HashSet<string>(allowedProperties, StringComparer.OrdinalIgnoreCase);
-
             foreach (var d in descriptors)
             {
                 if (!allowedSet.Contains(d.PropertyName))
@@ -121,10 +133,7 @@ public static class QueryableExtensions
         for (var i = 0; i < descriptors.Length; i++)
         {
             var desc = descriptors[i];
-
-            // Build body expression for nested properties
             Expression? body = parameter;
-
             foreach (var member in desc.PropertyName.Split('.'))
             {
                 body = Expression.PropertyOrField(body!, member);
@@ -139,7 +148,6 @@ public static class QueryableExtensions
             var lambda = Expression.Lambda(delegateType, body, parameter);
 
             string methodName;
-
             if (i == 0)
             {
                 methodName = desc.Direction == SortDirection.Descending ? "OrderByDescending" : "OrderBy";
@@ -151,10 +159,10 @@ public static class QueryableExtensions
 
             var queryableType = typeof(Queryable);
             var methods = queryableType.GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .Where(m => m.Name == methodName && m.GetParameters().Length == 2).ToList();
+                .Where(m => m.Name == methodName && m.GetParameters().Length == 2)
+                .ToList();
 
             var method = methods.FirstOrDefault();
-
             if (method == null)
             {
                 continue;
@@ -173,23 +181,5 @@ public static class QueryableExtensions
         }
 
         return orderedQuery ?? source;
-    }
-
-    private static string[] NormalizeAndOrderPaths(string[] includePaths)
-    {
-        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var p in includePaths)
-        {
-            if (string.IsNullOrWhiteSpace(p))
-            {
-                continue;
-            }
-
-            var trimmed = p.Trim();
-            set.Add(trimmed);
-        }
-
-        // Order by number of segments ascending: parents before children
-        return set.OrderBy(p => p.Count(c => c == '.')).ThenBy(p => p, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 }
