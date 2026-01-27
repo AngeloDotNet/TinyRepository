@@ -1,16 +1,18 @@
 ﻿using TinyRepository.Extensions;
 using TinyRepository.Provider;
+using TinyRepository.Provider.Interfaces;
 
 namespace TinyRepository.Sorting.Provider;
 
-/// <summary>
-/// Provider opzionale che costruisce la whitelist leggendo gli attributi [Orderable].
-/// Puoi registrarlo in DI se vuoi esporre esplicitamente una IPropertyWhitelistProvider<T>.
-/// </summary>
-public class AttributeWhitelistProvider<T> : IPropertyWhitelistProvider<T>
+public class AttributeWhitelistProvider<T> : IPropertyWhitelistProvider<T>, IIncludeWhitelistProvider<T>
 {
     public IEnumerable<string> GetAllowedProperties()
     {
         return OrderablePropertyScanner.GetOrderableProperties<T>();
+    }
+
+    public IEnumerable<string> GetAllowedIncludePaths()
+    {
+        return IncludePathScanner.GetIncludePaths<T>();
     }
 }
