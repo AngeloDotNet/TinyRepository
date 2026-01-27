@@ -5,7 +5,9 @@ using TinyRepository.Sorting;
 
 namespace TinyRepository.Interfaces;
 
-public interface IRepository<T, TKey> where T : class, IEntity<TKey> where TKey : IEquatable<TKey>
+public interface IRepository<T, TKey>
+        where T : class, IEntity<TKey>
+        where TKey : IEquatable<TKey>
 {
     // Basic CRUD
     Task<T?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default);
@@ -25,35 +27,54 @@ public interface IRepository<T, TKey> where T : class, IEntity<TKey> where TKey 
     // Patch
     Task<bool> PatchAsync(TKey id, Action<T> patchAction, CancellationToken cancellationToken = default);
 
-    // Expose queryable for advanced queries (caller responsible for materialization)
+    // Query exposure (expressions includes)
     IQueryable<T> Query(bool asNoTracking = true);
     IQueryable<T> Query(bool asNoTracking = true, params Expression<Func<T, object>>[] includes);
+    IQueryable<T> Query(bool asNoTracking = true, params string[] includePaths);
 
     IQueryable<T> Query(Expression<Func<T, bool>> predicate, bool asNoTracking = true);
     IQueryable<T> Query(Expression<Func<T, bool>> predicate, bool asNoTracking = true, params Expression<Func<T, object>>[] includes);
-
-    IQueryable<T> Query(bool asNoTracking = true, params string[] includePaths);
     IQueryable<T> Query(Expression<Func<T, bool>> predicate, bool asNoTracking = true, params string[] includePaths);
 
-    // Paging with optional filter and ordering function or dynamic ordering by property name
-    Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
-        Expression<Func<T, bool>>? filter = null, bool asNoTracking = true, CancellationToken cancellationToken = default);
+    // Paging / ordering
+    Task<PagedResult<T>> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
+        Expression<Func<T, bool>>? filter = null,
+        bool asNoTracking = true,
+        CancellationToken cancellationToken = default);
 
-    // Get paged with dynamic ordering by property name (supports nested properties "Author.Name")
-    Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, string? orderByProperty, bool descending = false, Expression<Func<T, bool>>? filter = null,
-        bool asNoTracking = true, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes);
+    Task<PagedResult<T>> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        string? orderByProperty,
+        bool descending = false,
+        Expression<Func<T, bool>>? filter = null,
+        bool asNoTracking = true,
+        CancellationToken cancellationToken = default,
+        params string[] includePaths);
 
-    // Get paged with multiple sort descriptors (property + direction)
-    Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, IEnumerable<SortDescriptor>? sortDescriptors, Expression<Func<T, bool>>? filter = null,
-        bool asNoTracking = true, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes);
+    Task<PagedResult<T>> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        IEnumerable<SortDescriptor>? sortDescriptors,
+        Expression<Func<T, bool>>? filter = null,
+        bool asNoTracking = true,
+        CancellationToken cancellationToken = default,
+        params string[] includePaths);
 
-    // Get paged with dynamic ordering by property name (supports nested properties "Author.Name")
-    Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, string? orderByProperty, bool descending = false, Expression<Func<T, bool>>? filter = null,
-        bool asNoTracking = true, CancellationToken cancellationToken = default, params string[] includePaths);
-
-    // Get paged with multiple sort descriptors (property + direction)
-    Task<PagedResult<T>> GetPagedAsync(int pageNumber, int pageSize, IEnumerable<SortDescriptor>? sortDescriptors, Expression<Func<T, bool>>? filter = null,
-        bool asNoTracking = true, CancellationToken cancellationToken = default, params string[] includePaths);
+    // Two-stage paging (safe when including collections): first select ids then load entities with includes
+    Task<PagedResult<T>> GetPagedTwoStageAsync(
+        int pageNumber,
+        int pageSize,
+        IEnumerable<SortDescriptor>? sortDescriptors = null,
+        string? orderByProperty = null,
+        bool descending = false,
+        Expression<Func<T, bool>>? filter = null,
+        bool asNoTracking = true,
+        CancellationToken cancellationToken = default,
+        params string[] includePaths);
 
     Task<int> CountAsync(CancellationToken cancellationToken = default);
     Task<bool> ExistsAsync(TKey id, CancellationToken cancellationToken = default);
