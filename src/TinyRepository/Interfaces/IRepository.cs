@@ -74,6 +74,7 @@ public interface IRepository<T, TKey>
         Expression<Func<T, bool>>? filter = null,
         bool asNoTracking = true,
         CancellationToken cancellationToken = default,
+        bool useAsSplitQuery = false,
         params string[] includePaths);
 
     Task<int> CountAsync(CancellationToken cancellationToken = default);
