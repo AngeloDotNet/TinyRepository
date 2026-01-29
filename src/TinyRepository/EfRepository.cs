@@ -319,9 +319,7 @@ public class EfRepository<T, TKey> : IRepository<T, TKey> where T : class, IEnti
         var totalCount = await baseQuery.CountAsync(cancellationToken);
 
         if (idList.Count == 0)
-        {
             return new PagedResult<T>(Array.Empty<T>(), totalCount, pageNumber, pageSize);
-        }
 
         // Load entities with includes filtering by ids
         var loadQuery = asNoTracking ? dbSet.AsNoTracking().AsQueryable() : dbSet.AsQueryable();
@@ -331,14 +329,19 @@ public class EfRepository<T, TKey> : IRepository<T, TKey> where T : class, IEnti
         }
 
         // Build contains expression: e => idList.Contains(EF.Property<TKey>(e, pkName))
-        var containsBody = Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), [typeof(TKey)],
-            Expression.Constant(idList), Expression.Call(typeof(EF), nameof(EF.Property), [typeof(TKey)], parameter, Expression.Constant(pkName)));
-
+        var containsBody = Expression.Call(
+            typeof(Enumerable),
+            nameof(Enumerable.Contains),
+            [typeof(TKey)],
+            Expression.Constant(idList),
+            Expression.Call(typeof(EF), nameof(EF.Property), new[] { typeof(TKey) }, parameter, Expression.Constant(pkName)));
         var containsLambda = Expression.Lambda<Func<T, bool>>(containsBody, parameter);
+
         var loaded = await loadQuery.Where(containsLambda).ToListAsync(cancellationToken);
 
         // Reorder loaded entities to match idList order
-        var dict = loaded.ToDictionary(e => (TKey)typeof(T).GetProperty(pkName)!.GetValue(e)!, e => e);
+        var propInfo = typeof(T).GetProperty(pkName) ?? throw new InvalidOperationException($"PK property {pkName} not found on type {typeof(T).Name}");
+        var dict = loaded.ToDictionary(e => (TKey)propInfo.GetValue(e)!, e => e);
         var orderedItems = idList.Select(id => dict.ContainsKey(id) ? dict[id] : null).Where(x => x != null)!.Cast<T>().ToList();
 
         return new PagedResult<T>(orderedItems, totalCount, pageNumber, pageSize);
@@ -351,6 +354,98 @@ public class EfRepository<T, TKey> : IRepository<T, TKey> where T : class, IEnti
     {
         var entity = await GetByIdAsync(id, cancellationToken);
         return entity is not null;
+    }
+
+    public virtual async Task<PagedResult<T>> GetPagedTwoStageAsync(int pageNumber, int pageSize, IEnumerable<SortDescriptor>? sortDescriptors = null,
+        string? orderByProperty = null, bool descending = false, Expression<Func<T, bool>>? filter = null, bool asNoTracking = true,
+        CancellationToken cancellationToken = default, bool useAsSplitQuery = false, params string[] includePaths)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageNumber);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
+
+        if (includePaths != null && includePaths.Length > 0)
+        {
+            ValidateIncludePaths(includePaths);
+        }
+
+        var baseQuery = asNoTracking ? dbSet.AsNoTracking() : dbSet;
+
+        if (filter != null)
+        {
+            baseQuery = baseQuery.Where(filter);
+        }
+
+        // Apply ordering on baseQuery
+        if (sortDescriptors != null && sortDescriptors.Any())
+        {
+            baseQuery = baseQuery.ApplyOrdering(sortDescriptors, allowedProperties);
+        }
+        else if (!string.IsNullOrWhiteSpace(orderByProperty))
+        {
+            if (allowedProperties != null)
+            {
+                var allowedSet = new HashSet<string>(allowedProperties, StringComparer.OrdinalIgnoreCase);
+                if (!allowedSet.Contains(orderByProperty))
+                    throw new ArgumentException($"Property '{orderByProperty}' is not allowed for ordering.");
+            }
+
+            baseQuery = baseQuery.ApplyOrderByProperty(orderByProperty, descending);
+        }
+
+        // Get primary key property name via EF metadata
+        var entityType = dbContext.Model.FindEntityType(typeof(T)) ?? throw new InvalidOperationException($"Entity type {typeof(T).FullName} not found in EF model.");
+        var pk = entityType.FindPrimaryKey() ?? throw new InvalidOperationException($"Primary key not found for {typeof(T).FullName}.");
+        if (pk.Properties.Count != 1)
+        {
+            throw new NotSupportedException("Composite keys are not supported by GetPagedTwoStageAsync.");
+        }
+
+        var pkProperty = pk.Properties[0];
+        var pkName = pkProperty.Name;
+
+        // Build selector to project to PK value: e => EF.Property<TKey>(e, pkName)
+        var parameter = Expression.Parameter(typeof(T), "e");
+        var body = Expression.Call(typeof(EF), nameof(EF.Property), [typeof(TKey)], parameter, Expression.Constant(pkName));
+        var selector = Expression.Lambda<Func<T, TKey>>(body, parameter);
+
+        // Query ids with paging
+        var skip = (pageNumber - 1) * pageSize;
+        var idList = await baseQuery.Select(selector).Skip(skip).Take(pageSize).ToListAsync(cancellationToken);
+
+        // Total count
+        var totalCount = await baseQuery.CountAsync(cancellationToken);
+
+        if (idList.Count == 0)
+            return new PagedResult<T>([], totalCount, pageNumber, pageSize);
+
+        // Load entities with includes filtering by ids
+        var loadQuery = asNoTracking ? dbSet.AsNoTracking() : dbSet;
+
+        if (includePaths != null && includePaths.Length > 0)
+        {
+            loadQuery = loadQuery.IncludePaths(includePaths);
+
+            if (useAsSplitQuery)
+            {
+                loadQuery = loadQuery.AsSplitQuery(); // MEMO: AsSplitQuery is disponible in nuget package Microsoft.EntityFrameworkCore.Relational
+            }
+        }
+
+        // Build contains expression: e => idList.Contains(EF.Property<TKey>(e, pkName))
+        var containsBody = Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), [typeof(TKey)],
+            Expression.Constant(idList), Expression.Call(typeof(EF), nameof(EF.Property), new[] { typeof(TKey) }, parameter, Expression.Constant(pkName)));
+
+        var containsLambda = Expression.Lambda<Func<T, bool>>(containsBody, parameter);
+        var loaded = await loadQuery.Where(containsLambda).ToListAsync(cancellationToken);
+
+        // Reorder loaded entities to match idList order
+        var propInfo = typeof(T).GetProperty(pkName)
+            ?? throw new InvalidOperationException($"PK property {pkName} not found on type {typeof(T).Name}");
+
+        var dict = loaded.ToDictionary(e => (TKey)propInfo.GetValue(e)!, e => e);
+        var orderedItems = idList.Select(id => dict.ContainsKey(id) ? dict[id] : null).Where(x => x != null)!.Cast<T>().ToList();
+
+        return new PagedResult<T>(orderedItems, totalCount, pageNumber, pageSize);
     }
 
     private void ValidateIncludePaths(string[] includePaths)
@@ -373,6 +468,12 @@ public class EfRepository<T, TKey> : IRepository<T, TKey> where T : class, IEnti
                 for (var i = 0; i < segments.Length; i++)
                 {
                     check = i == 0 ? segments[i] : $"{check}.{segments[i]}";
+
+                    if (!allowed.Contains(p))
+                    {
+                        throw new ArgumentException($"Include path '{p}' is not allowed.");
+                    }
+
                     if (allowed.Contains(check))
                     {
                         ok = true;
