@@ -10,15 +10,14 @@ namespace TinyRepository.Tests;
 
 public class RepositoryIntegrationTests
 {
-    private ServiceProvider BuildServices()
+    private ServiceProvider BuildServices(int maxDepth = 5)
     {
         var services = new ServiceCollection();
 
         services.AddDbContext<TestDbContext>(opt => opt.UseInMemoryDatabase(Guid.NewGuid().ToString()));
         services.AddRepositoryPattern<TestDbContext>();
 
-        // auto-scan whitelist in this assembly
-        services.AddAttributeWhitelistScan(typeof(Article).Assembly);
+        services.AddAttributeWhitelistScan(opt => opt.MaxDepth = maxDepth, typeof(Article).Assembly);
 
         return services.BuildServiceProvider();
     }
@@ -121,6 +120,57 @@ public class RepositoryIntegrationTests
         await Assert.ThrowsAsync<ArgumentException>(async () =>
         {
             await repo.GetPagedAsync(1, 5, [SortDescriptor.Asc("Title")], filter: null, asNoTracking: true, includePaths: ["NonAllowed.Path"]);
+        });
+    }
+
+    [Fact]
+    public async Task GetPagedTwoStage_CompositeKey_ThrowsNotSupported()
+    {
+        // build a context with an entity that has composite key
+        var services = new ServiceCollection();
+        services.AddDbContext<CompositeKeyContext>(o => o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
+        services.AddRepositoryPattern<CompositeKeyContext>();
+
+        var sp = services.BuildServiceProvider();
+
+        using var scope = sp.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<CompositeKeyContext>();
+        ctx.Add(new CompositeEntity { Key1 = 1, Key2 = 1, Name = "c" });
+
+        await ctx.SaveChangesAsync();
+
+        var repo = scope.ServiceProvider.GetRequiredService<IRepository<CompositeEntity, int>>(); // note: generic TKey doesn't match composite, but test aims to exercise exception
+
+        await Assert.ThrowsAsync<NotSupportedException>(async () =>
+        {
+            await repo.GetPagedTwoStageAsync(1, 10);
+        });
+    }
+
+    [Fact]
+    public async Task GetPagedTwoStage_InvalidOrderProperty_ThrowsArgumentExceptionAsync()
+    {
+        var sp = BuildServices();
+        using var scope = sp.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IRepository<Article, int>>();
+
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+        {
+            await repo.GetPagedTwoStageAsync(1, 5, orderByProperty: "NonExistingProp");
+        });
+    }
+
+    [Fact]
+    public async Task MaxDepthExceeded_IncludeRejected()
+    {
+        // configure scan with maxDepth = 1 so nested include "Author.Books.Publisher" is beyond depth
+        var sp = BuildServices(maxDepth: 1);
+        using var scope = sp.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IRepository<Article, int>>();
+
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+        {
+            await repo.GetPagedAsync(1, 5, [SortDescriptor.Asc("Title")], filter: null, asNoTracking: true, includePaths: ["Author.Books.Publisher"]);
         });
     }
 }
