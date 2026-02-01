@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinyRepository", "src\TinyR
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinyRepository.Sample", "samples\TinyRepository.Sample\TinyRepository.Sample.csproj", "{D269F9A0-9EFE-4D75-84D4-9B942CB2EA22}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinyRepository.Tests", "tests\TinyRepository.Tests\TinyRepository.Tests.csproj", "{949E1DBD-EEF6-B126-DDDC-603CC064AF08}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -31,6 +33,10 @@ Global
 		{D269F9A0-9EFE-4D75-84D4-9B942CB2EA22}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D269F9A0-9EFE-4D75-84D4-9B942CB2EA22}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D269F9A0-9EFE-4D75-84D4-9B942CB2EA22}.Release|Any CPU.Build.0 = Release|Any CPU
+		{949E1DBD-EEF6-B126-DDDC-603CC064AF08}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{949E1DBD-EEF6-B126-DDDC-603CC064AF08}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{949E1DBD-EEF6-B126-DDDC-603CC064AF08}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{949E1DBD-EEF6-B126-DDDC-603CC064AF08}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
