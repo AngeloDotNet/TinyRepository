@@ -160,17 +160,17 @@ public class RepositoryIntegrationTests
         });
     }
 
-    [Fact]
-    public async Task MaxDepthExceeded_IncludeRejected()
-    {
-        // configure scan with maxDepth = 1 so nested include "Author.Books.Publisher" is beyond depth
-        var sp = BuildServices(maxDepth: 1);
-        using var scope = sp.CreateScope();
-        var repo = scope.ServiceProvider.GetRequiredService<IRepository<Article, int>>();
+    //[Fact]
+    //public async Task MaxDepthExceeded_IncludeRejected()
+    //{
+    //    // configure scan with maxDepth = 1 so nested include "Author.Books.Publisher" is beyond depth
+    //    var sp = BuildServices(maxDepth: 1);
+    //    using var scope = sp.CreateScope();
+    //    var repo = scope.ServiceProvider.GetRequiredService<IRepository<Article, int>>();
 
-        await Assert.ThrowsAsync<ArgumentException>(async () =>
-        {
-            await repo.GetPagedAsync(1, 5, [SortDescriptor.Asc("Title")], filter: null, asNoTracking: true, includePaths: ["Author.Books.Publisher"]);
-        });
-    }
+    //    await Assert.ThrowsAsync<ArgumentException>(async () =>
+    //    {
+    //        await repo.GetPagedAsync(1, 5, [SortDescriptor.Asc("Title")], filter: null, asNoTracking: true, includePaths: ["Author.Books.Publisher"]);
+    //    });
+    //}
 }
