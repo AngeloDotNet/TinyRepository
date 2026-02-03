@@ -1,8 +1,9 @@
-﻿using TinyRepository.Sorting;
+﻿using TinyRepository.Entities;
+using TinyRepository.Sorting;
 
 namespace TinyRepository.Tests.Models;
 
-public class Author
+public class Author : IEntity<int>
 {
     public int Id { get; set; }
 
