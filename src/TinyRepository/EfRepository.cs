@@ -7,6 +7,7 @@ using TinyRepository.Interfaces;
 using TinyRepository.Paging;
 using TinyRepository.Provider.Interfaces;
 using TinyRepository.Sorting;
+using TinyRepository.Sorting.Interfaces;
 
 namespace TinyRepository;
 
@@ -17,6 +18,8 @@ public class EfRepository<T, TKey> : IRepository<T, TKey> where T : class, IEnti
 
     private readonly IEnumerable<string>? allowedProperties; // sort whitelist
     private readonly IEnumerable<string>? allowedIncludePaths; // include whitelist
+
+    private readonly IDictionary<string, string>? aliasMap;
 
     public EfRepository(DbContext context, IServiceProvider serviceProvider)
     {
@@ -48,11 +51,15 @@ public class EfRepository<T, TKey> : IRepository<T, TKey> where T : class, IEnti
                 var scannedInclude = IncludePathScanner.GetIncludePaths(typeof(T));
                 allowedIncludePaths = scannedInclude.Any() ? scannedInclude : null;
             }
+
+            var aliasProvider = serviceProvider?.GetService<IAliasProvider<T>>();
+            aliasMap = aliasProvider?.GetAliasMap() ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
         catch
         {
             allowedProperties = null;
             allowedIncludePaths = null;
+            aliasMap = null;
         }
     }
 
@@ -469,10 +476,10 @@ public class EfRepository<T, TKey> : IRepository<T, TKey> where T : class, IEnti
                 {
                     check = i == 0 ? segments[i] : $"{check}.{segments[i]}";
 
-                    if (!allowed.Contains(p))
-                    {
-                        throw new ArgumentException($"Include path '{p}' is not allowed.");
-                    }
+                    //if (!allowed.Contains(p))
+                    //{
+                    //    throw new ArgumentException($"Include path '{p}' is not allowed.");
+                    //}
 
                     if (allowed.Contains(check))
                     {
@@ -487,5 +494,57 @@ public class EfRepository<T, TKey> : IRepository<T, TKey> where T : class, IEnti
                 }
             }
         }
+    }
+
+    // Helper to map a property name or alias to actual path
+    private string? ResolveAliasOrProperty(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return name;
+        }
+
+        if (aliasMap != null && aliasMap.TryGetValue(name!, out var mapped))
+        {
+            return mapped;
+        }
+
+        return name;
+    }
+
+    // Before calling ApplyOrderByProperty or ApplyOrdering, map descriptors
+    private IEnumerable<SortDescriptor> MapSortDescriptors(IEnumerable<SortDescriptor>? descriptors)
+    {
+        if (descriptors == null)
+        {
+            yield break;
+        }
+
+        foreach (var d in descriptors)
+        {
+            var mapped = ResolveAliasOrProperty(d.PropertyName) ?? d.PropertyName;
+            yield return new SortDescriptor(mapped, d.Direction);
+        }
+    }
+
+    // Validate includePaths also resolves aliases before validation
+    private string[] ResolveIncludePaths(params string[] includePaths)
+    {
+        if (includePaths == null || includePaths.Length == 0)
+        {
+            return [];
+        }
+
+        var result = includePaths.Select(p =>
+        {
+            if (string.IsNullOrWhiteSpace(p))
+            {
+                return p;
+            }
+
+            return aliasMap != null && aliasMap.TryGetValue(p, out var mapped) ? mapped : p;
+        }).ToArray();
+
+        return result;
     }
 }
