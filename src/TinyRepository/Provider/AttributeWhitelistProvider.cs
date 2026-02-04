@@ -1,6 +1,5 @@
 ﻿using TinyRepository.Extensions;
 using TinyRepository.Provider.Interfaces;
-using TinyRepository.Sorting.Interfaces;
 
 namespace TinyRepository.Provider;
 
@@ -44,6 +43,7 @@ public class AttributeWhitelistProvider<T> : IPropertyWhitelistProvider<T>, IInc
         }
 
         var includesWithAliases = IncludePathScanner.GetIncludePathsWithAlias(type, maxDepth);
+
         foreach (var kv in includesWithAliases)
         {
             if (!map.ContainsKey(kv.Key))
