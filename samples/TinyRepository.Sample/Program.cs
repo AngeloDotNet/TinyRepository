@@ -5,6 +5,7 @@ using Microsoft.Net.Http.Headers;
 using TinyRepository.DTOs;
 using TinyRepository.Ef;
 using TinyRepository.Extensions;
+using TinyRepository.Filters;
 using TinyRepository.Interfaces;
 using TinyRepository.Metadata.Interfaces;
 using TinyRepository.Paging;
@@ -45,15 +46,18 @@ public class Program
 
         builder.Services.AddRepositoryPattern<AppDbContext>();
 
-        // scan attributi nell'assembly di dominio con maxDepth = 3
-        //builder.Services.AddAttributeWhitelistScan(typeof(SampleEntity).Assembly);
         builder.Services.AddAttributeWhitelistScan(opt => opt.MaxDepth = 4, typeof(Article).Assembly);
-        builder.Services.AddMetadataService(typeof(Author).Assembly);
+        builder.Services.AddMetadataService(config => { /* leave MaxDepth null to reuse AddAttributeWhitelistScan value */ }, typeof(Article).Assembly);
 
         builder.Services.AddTransient<ISampleService, SampleService>();
         builder.Services.AddEndpointsApiExplorer();
 
-        builder.Services.AddSwaggerGen();
+        builder.Services.AddSwaggerGen(options =>
+        {
+            options.SwaggerDoc("v1", new() { Title = builder.Environment.ApplicationName, Version = "v1" });
+            options.OperationFilter<MetadataOperationFilter>();
+        });
+
         builder.Services.AddCors(options =>
         {
             options.AddDefaultPolicy(builder =>
@@ -178,6 +182,29 @@ public class Program
         metadataApi.MapGet("/entities/{name}/whitelist", async (string name, IMetadataService metadata) =>
         {
             var dto = await metadata.GetEntityWhitelistAsync(name);
+            if (dto == null)
+            {
+                return Results.NotFound(new { message = $"Entity '{name}' not found in scanned assemblies." });
+            }
+
+            return Results.Ok(dto);
+        })
+        .WithName("GetEntityWhitelist")
+        .Produces<EntityWhitelistDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound);
+
+        app.MapGet("/metadata/entities", async (IMetadataService metadata) =>
+        {
+            var names = await metadata.GetAllEntityNamesAsync();
+            return Results.Ok(names);
+        })
+        .WithName("GetEntities")
+        .Produces<string[]>(StatusCodes.Status200OK);
+
+        app.MapGet("/metadata/entities/{name}/whitelist", async (string name, IMetadataService metadata) =>
+        {
+            var dto = await metadata.GetEntityWhitelistAsync(name);
+
             if (dto == null)
             {
                 return Results.NotFound(new { message = $"Entity '{name}' not found in scanned assemblies." });
