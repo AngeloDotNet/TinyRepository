@@ -2,8 +2,12 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Net.Http.Headers;
+using TinyRepository.DTOs;
 using TinyRepository.Ef;
 using TinyRepository.Extensions;
+using TinyRepository.Interfaces;
+using TinyRepository.Metadata.Interfaces;
+using TinyRepository.Paging;
 using TinyRepository.Sample.DTOs;
 using TinyRepository.Sample.Entities;
 using TinyRepository.Sample.Services;
@@ -39,10 +43,12 @@ public class Program
             //options.ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
         });
 
-        //builder.Services.AddAttributeWhitelistScan(typeof(SampleEntity).Assembly);
         builder.Services.AddRepositoryPattern<AppDbContext>();
+
         // scan attributi nell'assembly di dominio con maxDepth = 3
-        builder.Services.AddAttributeWhitelistScan(opt => opt.MaxDepth = 3, typeof(SampleEntity).Assembly);
+        //builder.Services.AddAttributeWhitelistScan(typeof(SampleEntity).Assembly);
+        builder.Services.AddAttributeWhitelistScan(opt => opt.MaxDepth = 4, typeof(Article).Assembly);
+        builder.Services.AddMetadataService(typeof(Author).Assembly);
 
         builder.Services.AddTransient<ISampleService, SampleService>();
         builder.Services.AddEndpointsApiExplorer();
@@ -77,6 +83,8 @@ public class Program
         app.UseRouting();
         app.UseCors();
 
+        #region "Sample API"
+
         var exampleApi = app.MapGroup("/api/example")
             .WithDescription("Example APIs for TinyRepository")
             .WithTags("Example APIs");
@@ -107,6 +115,81 @@ public class Program
         .WithDescription("Creates a new SampleEntity.")
         .Produces<Created<SampleEntity>>(StatusCodes.Status201Created)
         .ProducesProblem(StatusCodes.Status400BadRequest);
+
+        #endregion
+
+        #region "Article API"
+
+        var articleApi = app.MapGroup("/api/articles")
+            .WithDescription("Article APIs for TinyRepository")
+            .WithTags("Article APIs");
+
+        // endpoint demo con alias e include parsing
+        app.MapGet("/articles", async (IRepository<Article, int> repo, HttpRequest req) =>
+        {
+            // include param: comma separated (can be alias)
+            var includeQuery = req.Query["include"].ToString();
+            var includePaths = string.IsNullOrWhiteSpace(includeQuery) ? [] : includeQuery.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+            var page = int.TryParse(req.Query["page"], out var p) ? Math.Max(1, p) : 1;
+            var pageSize = int.TryParse(req.Query["pageSize"], out var ps) ? Math.Clamp(ps, 1, 100) : 10;
+
+            var useSplit = bool.TryParse(req.Query["split"], out var s) && s;
+
+            // sort param: alias or property, direction param "asc" or "desc"
+            var sort = req.Query["sort"].ToString();
+            var dir = req.Query["dir"].ToString() ?? "asc";
+            var descending = string.Equals(dir, "desc", StringComparison.OrdinalIgnoreCase);
+
+            PagedResult<Article> pageResult;
+            if (!string.IsNullOrWhiteSpace(sort))
+            {
+                pageResult = await repo.GetPagedTwoStageAsync(page, pageSize,
+                    orderByProperty: sort,
+                    descending: descending,
+                    filter: null,
+                    asNoTracking: true,
+                    cancellationToken: default,
+                    useAsSplitQuery: useSplit,
+                    includePaths: includePaths);
+            }
+            else
+            {
+                pageResult = await repo.GetPagedTwoStageAsync(page, pageSize,
+                    sortDescriptors: [Sorting.SortDescriptor.Asc("Title")],
+                    filter: null,
+                    asNoTracking: true,
+                    cancellationToken: default,
+                    useAsSplitQuery: useSplit,
+                    includePaths: includePaths);
+            }
+
+            return Results.Ok(new { pageResult.TotalCount, pageResult.PageNumber, pageResult.PageSize, pageResult.Items });
+        });
+
+        #endregion
+
+        #region "Metadata API"
+
+        var metadataApi = app.MapGroup("/api/metadata")
+            .WithDescription("Metadata APIs for TinyRepository")
+            .WithTags("Metadata APIs");
+
+        metadataApi.MapGet("/entities/{name}/whitelist", async (string name, IMetadataService metadata) =>
+        {
+            var dto = await metadata.GetEntityWhitelistAsync(name);
+            if (dto == null)
+            {
+                return Results.NotFound(new { message = $"Entity '{name}' not found in scanned assemblies." });
+            }
+
+            return Results.Ok(dto);
+        })
+        .WithName("GetEntityWhitelist")
+        .Produces<EntityWhitelistDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound);
+
+        #endregion
 
         app.Run();
     }
