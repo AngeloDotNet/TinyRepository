@@ -5,13 +5,17 @@ using TinyRepository.Metadata.Interfaces;
 
 namespace TinyRepository.Metadata;
 
-/// <summary>
-/// Scanner-based metadata service. Scansiona gli assembly forniti per costruire
-/// alias/orderable/include lists per tipo.
-/// </summary>
-public class MetadataService(params Assembly[] assemblies) : IMetadataService
+public class MetadataService(int maxDepth = 5, params Assembly[] assemblies) : IMetadataService
 {
     private readonly Assembly[] assemblies = (assemblies == null || assemblies.Length == 0) ? [Assembly.GetCallingAssembly()] : assemblies;
+    private readonly int maxDepth = maxDepth <= 0 ? 5 : maxDepth;
+    private readonly Lazy<Dictionary<string, Type>> typesBySimpleName = new Lazy<Dictionary<string, Type>>(() =>
+    {
+        return assemblies
+            .SelectMany(a => a.GetTypes())
+            .Where(t => t.IsClass && !t.IsAbstract)
+            .ToDictionary(t => t.Name, t => t, StringComparer.OrdinalIgnoreCase);
+    });
 
     public Task<EntityWhitelistDto?> GetEntityWhitelistAsync(string entityName)
     {
@@ -20,33 +24,26 @@ public class MetadataService(params Assembly[] assemblies) : IMetadataService
             return Task.FromResult<EntityWhitelistDto?>(null);
         }
 
-        // find type by simple name or full name (case-insensitive)
-        var type = assemblies.SelectMany(a => a.GetTypes())
-            .FirstOrDefault(t => string.Equals(t.Name, entityName, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(t.FullName, entityName, StringComparison.OrdinalIgnoreCase));
+        var type = FindTypeByName(entityName);
 
         if (type == null)
         {
             return Task.FromResult<EntityWhitelistDto?>(null);
         }
 
-        // build result using the scanners that already expose alias-aware info
-        // For orderable: we use GetOrderablePropertiesWithAlias to get alias->actualPath pairs
-        var orderablesWithAlias = OrderablePropertyScanner.GetOrderablePropertiesWithAlias(type, maxDepth: 5).ToArray();
-        var includesWithAlias = IncludePathScanner.GetIncludePathsWithAlias(type, maxDepth: 5).ToArray();
+        var orderablesWithAlias = OrderablePropertyScanner.GetOrderablePropertiesWithAlias(type, maxDepth).ToArray();
+        var includesWithAlias = IncludePathScanner.GetIncludePathsWithAlias(type, maxDepth).ToArray();
+
         var aliasMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        // orderable aliases: key=alias/effectiveName, value=actualPath
         foreach (var kv in orderablesWithAlias)
         {
-            // kv.Key = alias/effectiveName, kv.Value = actualPath
             if (!aliasMap.ContainsKey(kv.Key))
             {
                 aliasMap[kv.Key] = kv.Value;
             }
         }
 
-        // include aliases
         foreach (var kv in includesWithAlias)
         {
             if (!aliasMap.ContainsKey(kv.Key))
@@ -64,5 +61,23 @@ public class MetadataService(params Assembly[] assemblies) : IMetadataService
         };
 
         return Task.FromResult<EntityWhitelistDto?>(dto);
+    }
+
+    public Task<IEnumerable<string>> GetAllEntityNamesAsync()
+    {
+        var names = typesBySimpleName.Value.Keys.OrderBy(n => n).AsEnumerable();
+        return Task.FromResult(names);
+    }
+
+    private Type? FindTypeByName(string entityName)
+    {
+        if (typesBySimpleName.Value.TryGetValue(entityName, out var t))
+        {
+            return t;
+        }
+
+        // try full name
+        var full = assemblies.SelectMany(a => a.GetTypes()).FirstOrDefault(x => string.Equals(x.FullName, entityName, StringComparison.OrdinalIgnoreCase));
+        return full;
     }
 }
