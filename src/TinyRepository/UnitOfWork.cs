@@ -20,14 +20,10 @@ public class UnitOfWork<TContext>(TContext context) : IUnitOfWork where TContext
         private bool disposed;
 
         public async Task CommitAsync(CancellationToken cancellationToken = default)
-        {
-            await tx.CommitAsync(cancellationToken);
-        }
+            => await tx.CommitAsync(cancellationToken);
 
         public async Task RollbackAsync(CancellationToken cancellationToken = default)
-        {
-            await tx.RollbackAsync(cancellationToken);
-        }
+            => await tx.RollbackAsync(cancellationToken);
 
         public async ValueTask DisposeAsync()
         {

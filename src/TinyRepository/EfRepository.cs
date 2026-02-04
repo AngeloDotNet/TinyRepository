@@ -7,7 +7,6 @@ using TinyRepository.Interfaces;
 using TinyRepository.Paging;
 using TinyRepository.Provider.Interfaces;
 using TinyRepository.Sorting;
-using TinyRepository.Sorting.Interfaces;
 
 namespace TinyRepository;
 
