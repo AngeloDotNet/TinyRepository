@@ -25,39 +25,44 @@ public class MetadataService(int maxDepth = 5, params Assembly[] assemblies) : I
         }
 
         var type = FindTypeByName(entityName);
-
         if (type == null)
         {
             return Task.FromResult<EntityWhitelistDto?>(null);
         }
 
-        var orderablesWithAlias = OrderablePropertyScanner.GetOrderablePropertiesWithAlias(type, maxDepth).ToArray();
-        var includesWithAlias = IncludePathScanner.GetIncludePathsWithAlias(type, maxDepth).ToArray();
+        var orderables = OrderablePropertyScanner.GetOrderablePropertiesWithAlias(type, maxDepth).ToArray();
+        var includes = IncludePathScanner.GetIncludePathsWithAlias(type, maxDepth).ToArray();
 
         var aliasMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var aliasInfos = new List<AliasMetadata>();
 
-        foreach (var kv in orderablesWithAlias)
+        foreach (var a in orderables)
         {
-            if (!aliasMap.ContainsKey(kv.Key))
+            if (!aliasMap.ContainsKey(a.Alias))
             {
-                aliasMap[kv.Key] = kv.Value;
+                aliasMap[a.Alias] = a.Path;
             }
+
+            aliasInfos.Add(a);
         }
 
-        foreach (var kv in includesWithAlias)
+        foreach (var a in includes)
         {
-            if (!aliasMap.ContainsKey(kv.Key))
+            if (!aliasMap.ContainsKey(a.Alias))
             {
-                aliasMap[kv.Key] = kv.Value;
+                aliasMap[a.Alias] = a.Path;
             }
+
+            aliasInfos.Add(a);
         }
 
         var dto = new EntityWhitelistDto
         {
             EntityType = type.FullName ?? type.Name,
             Aliases = aliasMap,
-            OrderableProperties = orderablesWithAlias.Select(kv => kv.Value).Distinct(StringComparer.OrdinalIgnoreCase),
-            IncludePaths = includesWithAlias.Select(kv => kv.Value).Distinct(StringComparer.OrdinalIgnoreCase)
+            AliasInfos = aliasInfos.GroupBy(x => x.Alias, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToArray(),
+            OrderableProperties = orderables.Select(x => x.Path).Distinct(StringComparer.OrdinalIgnoreCase),
+            IncludePaths = includes.Select(x => x.Path).Distinct(StringComparer.OrdinalIgnoreCase)
         };
 
         return Task.FromResult<EntityWhitelistDto?>(dto);
@@ -71,11 +76,7 @@ public class MetadataService(int maxDepth = 5, params Assembly[] assemblies) : I
 
     private Type? FindTypeByName(string entityName)
     {
-        if (typesBySimpleName.Value.TryGetValue(entityName, out var t))
-        {
-            return t;
-        }
-
+        if (typesBySimpleName.Value.TryGetValue(entityName, out var t)) return t;
         // try full name
         var full = assemblies.SelectMany(a => a.GetTypes()).FirstOrDefault(x => string.Equals(x.FullName, entityName, StringComparison.OrdinalIgnoreCase));
         return full;
