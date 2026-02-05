@@ -7,11 +7,13 @@ using TinyRepository.Ef;
 using TinyRepository.Extensions;
 using TinyRepository.Filters;
 using TinyRepository.Interfaces;
+using TinyRepository.Metadata;
 using TinyRepository.Metadata.Interfaces;
 using TinyRepository.Paging;
 using TinyRepository.Sample.DTOs;
 using TinyRepository.Sample.Entities;
 using TinyRepository.Sample.Services;
+using TinyRepository.Sorting;
 
 namespace TinyRepository.Sample;
 
@@ -47,7 +49,8 @@ public class Program
         builder.Services.AddRepositoryPattern<AppDbContext>();
 
         builder.Services.AddAttributeWhitelistScan(opt => opt.MaxDepth = 4, typeof(Article).Assembly);
-        builder.Services.AddMetadataService(config => { /* leave MaxDepth null to reuse AddAttributeWhitelistScan value */ }, typeof(Article).Assembly);
+        //builder.Services.AddMetadataService(config => { /* leave MaxDepth null to reuse AddAttributeWhitelistScan value */ }, typeof(Article).Assembly);
+        builder.Services.AddMetadataService(null, typeof(Article).Assembly);
 
         builder.Services.AddTransient<ISampleService, SampleService>();
         builder.Services.AddEndpointsApiExplorer();
@@ -129,47 +132,82 @@ public class Program
             .WithTags("Article APIs");
 
         // endpoint demo con alias e include parsing
+        //app.MapGet("/articles", async (IRepository<Article, int> repo, HttpRequest req) =>
+        //{
+        //    // include param: comma separated (can be alias)
+        //    var includeQuery = req.Query["include"].ToString();
+        //    var includePaths = string.IsNullOrWhiteSpace(includeQuery) ? [] : includeQuery.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        //    var page = int.TryParse(req.Query["page"], out var p) ? Math.Max(1, p) : 1;
+        //    var pageSize = int.TryParse(req.Query["pageSize"], out var ps) ? Math.Clamp(ps, 1, 100) : 10;
+
+        //    var useSplit = bool.TryParse(req.Query["split"], out var s) && s;
+
+        //    // sort param: alias or property, direction param "asc" or "desc"
+        //    var sort = req.Query["sort"].ToString();
+        //    var dir = req.Query["dir"].ToString() ?? "asc";
+        //    var descending = string.Equals(dir, "desc", StringComparison.OrdinalIgnoreCase);
+
+        //    PagedResult<Article> pageResult;
+        //    if (!string.IsNullOrWhiteSpace(sort))
+        //    {
+        //        pageResult = await repo.GetPagedTwoStageAsync(page, pageSize,
+        //            orderByProperty: sort,
+        //            descending: descending,
+        //            filter: null,
+        //            asNoTracking: true,
+        //            cancellationToken: default,
+        //            useAsSplitQuery: useSplit,
+        //            includePaths: includePaths);
+        //    }
+        //    else
+        //    {
+        //        pageResult = await repo.GetPagedTwoStageAsync(page, pageSize,
+        //            sortDescriptors: [Sorting.SortDescriptor.Asc("Title")],
+        //            filter: null,
+        //            asNoTracking: true,
+        //            cancellationToken: default,
+        //            useAsSplitQuery: useSplit,
+        //            includePaths: includePaths);
+        //    }
+
+        //    return Results.Ok(new { pageResult.TotalCount, pageResult.PageNumber, pageResult.PageSize, pageResult.Items });
+        //});
+
+        // endpoint demo con alias e include parsing con metadata esplicito tramite .WithMetadata
         app.MapGet("/articles", async (IRepository<Article, int> repo, HttpRequest req) =>
         {
-            // include param: comma separated (can be alias)
             var includeQuery = req.Query["include"].ToString();
             var includePaths = string.IsNullOrWhiteSpace(includeQuery) ? [] : includeQuery.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
             var page = int.TryParse(req.Query["page"], out var p) ? Math.Max(1, p) : 1;
             var pageSize = int.TryParse(req.Query["pageSize"], out var ps) ? Math.Clamp(ps, 1, 100) : 10;
 
-            var useSplit = bool.TryParse(req.Query["split"], out var s) && s;
-
-            // sort param: alias or property, direction param "asc" or "desc"
             var sort = req.Query["sort"].ToString();
             var dir = req.Query["dir"].ToString() ?? "asc";
+
             var descending = string.Equals(dir, "desc", StringComparison.OrdinalIgnoreCase);
+            var useSplit = bool.TryParse(req.Query["split"], out var s) && s;
 
             PagedResult<Article> pageResult;
+
             if (!string.IsNullOrWhiteSpace(sort))
             {
-                pageResult = await repo.GetPagedTwoStageAsync(page, pageSize,
-                    orderByProperty: sort,
-                    descending: descending,
-                    filter: null,
-                    asNoTracking: true,
-                    cancellationToken: default,
-                    useAsSplitQuery: useSplit,
-                    includePaths: includePaths);
+                pageResult = await repo.GetPagedTwoStageAsync(page, pageSize, orderByProperty: sort, descending: descending,
+                    filter: null, asNoTracking: true, cancellationToken: default, useAsSplitQuery: useSplit, includePaths: includePaths);
             }
             else
             {
                 pageResult = await repo.GetPagedTwoStageAsync(page, pageSize,
-                    sortDescriptors: [Sorting.SortDescriptor.Asc("Title")],
-                    filter: null,
-                    asNoTracking: true,
-                    cancellationToken: default,
-                    useAsSplitQuery: useSplit,
-                    includePaths: includePaths);
+                    sortDescriptors: [SortDescriptor.Asc("Title")], filter: null, asNoTracking: true,
+                    cancellationToken: default, useAsSplitQuery: useSplit, includePaths: includePaths);
             }
 
-            return Results.Ok(new { pageResult.TotalCount, pageResult.PageNumber, pageResult.PageSize, pageResult.Items });
-        });
+            return Results.Ok(new { pageResult.TotalCount, pageResult.PageNumber, pageResult.PageSize, Items = pageResult.Items });
+        })
+        .WithName("GetArticles")
+        .WithMetadata(new EntityNameAttribute("Article")) // attributo esplicito usato dall'OperationFilter
+        .Produces(StatusCodes.Status200OK);
 
         #endregion
 
@@ -207,7 +245,7 @@ public class Program
 
             if (dto == null)
             {
-                return Results.NotFound(new { message = $"Entity '{name}' not found in scanned assemblies." });
+                return Results.NotFound(new { message = $"Entity '{name}' not found" });
             }
 
             return Results.Ok(dto);
@@ -217,6 +255,20 @@ public class Program
         .Produces(StatusCodes.Status404NotFound);
 
         #endregion
+
+        //// populate some demo data
+        //using (var scope = app.Services.CreateScope())
+        //{
+        //    var ctx = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        //    if (!ctx.Authors.Any())
+        //    {
+        //        var author = new Author { LastName = "DemoAuthor", Books = new List<Book>() };
+        //        author.Books.Add(new Book { PublishedAt = DateTime.UtcNow, Publisher = new Publisher { Name = "DemoPub" }, Author = author });
+        //        ctx.Authors.Add(author);
+        //        ctx.Articles.Add(new Article { Title = "DemoArticle", IsPublished = true, Author = author, Tags = new List<Tag> { new Tag { Name = "t" } } });
+        //        ctx.SaveChanges();
+        //    }
+        //}
 
         app.Run();
     }

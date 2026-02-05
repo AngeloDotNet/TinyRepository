@@ -22,6 +22,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             // Mappa l'entità alla tabella "SampleEntities"
             entity.ToTable("SampleEntities");
+
             // Imposta la chiave primaria, se HasKey non viene chiamato, EF Core considera automaticamente la proprietà "Id" come chiave primaria
             // Per chiavi primarie composite, utilizzare entity.HasKey(e => new { e.KeyPart1, e.KeyPart2 });
             entity.HasKey(model => model.Id);
