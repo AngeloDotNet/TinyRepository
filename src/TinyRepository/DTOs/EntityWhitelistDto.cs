@@ -1,4 +1,6 @@
-﻿namespace TinyRepository.DTOs;
+﻿using TinyRepository.Metadata;
+
+namespace TinyRepository.DTOs;
 
 public class EntityWhitelistDto
 {
@@ -6,16 +8,15 @@ public class EntityWhitelistDto
 
     /// <summary>
     /// Alias -> actualPath (es. "authorName" => "Author.LastName")
+    /// kept for backward compatibility
     /// </summary>
     public IDictionary<string, string> Aliases { get; init; } = new Dictionary<string, string>();
 
     /// <summary>
-    /// Orderable properties using actual paths (e.g. "Author.LastName", "Title")
+    /// Dettagli completi sugli alias: alias-friendly, path reale, description, example.
     /// </summary>
-    public IEnumerable<string> OrderableProperties { get; init; } = [];
+    public IEnumerable<AliasMetadata> AliasInfos { get; init; } = Array.Empty<AliasMetadata>();
 
-    /// <summary>
-    /// Include allowed paths (actual paths) (e.g. "Author", "Author.Books")
-    /// </summary>
-    public IEnumerable<string> IncludePaths { get; init; } = [];
+    public IEnumerable<string> OrderableProperties { get; init; } = Array.Empty<string>();
+    public IEnumerable<string> IncludePaths { get; init; } = Array.Empty<string>();
 }
