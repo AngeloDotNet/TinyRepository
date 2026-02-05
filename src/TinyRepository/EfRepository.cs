@@ -35,8 +35,8 @@ public class EfRepository<T, TKey> : IRepository<T, TKey> where T : class, IEnti
             }
             else
             {
-                var scanned = OrderablePropertyScanner.GetOrderableProperties(typeof(T));
-                allowedProperties = scanned.Any() ? scanned : null;
+                var scanned = OrderablePropertyScanner.GetOrderablePropertiesWithAlias(typeof(T));
+                allowedProperties = (IEnumerable<string>?)(scanned.Any() ? scanned : null);
             }
 
             var providerInclude = serviceProvider?.GetService<IIncludeWhitelistProvider<T>>();
@@ -47,8 +47,8 @@ public class EfRepository<T, TKey> : IRepository<T, TKey> where T : class, IEnti
             }
             else
             {
-                var scannedInclude = IncludePathScanner.GetIncludePaths(typeof(T));
-                allowedIncludePaths = scannedInclude.Any() ? scannedInclude : null;
+                var scannedInclude = IncludePathScanner.GetIncludePathsWithAlias(typeof(T));
+                allowedIncludePaths = (IEnumerable<string>?)(scannedInclude.Any() ? scannedInclude : null);
             }
 
             var aliasProvider = serviceProvider?.GetService<IAliasProvider<T>>();

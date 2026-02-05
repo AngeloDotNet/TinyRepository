@@ -17,8 +17,8 @@ public class AttributeWhitelistProvider<T> : IPropertyWhitelistProvider<T>, IInc
     public AttributeWhitelistProvider(int maxDepth = 5)
     {
         this.maxDepth = maxDepth;
-        orderables = OrderablePropertyScanner.GetOrderableProperties(typeof(T), maxDepth).ToArray();
-        includes = IncludePathScanner.GetIncludePaths(typeof(T), maxDepth).ToArray();
+        orderables = OrderablePropertyScanner.GetOrderablePropertiesWithAlias(typeof(T), maxDepth).Select(a => a.Path).ToArray();
+        includes = IncludePathScanner.GetIncludePathsWithAlias(typeof(T), maxDepth).Select(a => a.Path).ToArray();
         aliasMap = AttributeWhitelistProvider<T>.BuildAliasMap(typeof(T), this.maxDepth);
     }
 
@@ -28,27 +28,25 @@ public class AttributeWhitelistProvider<T> : IPropertyWhitelistProvider<T>, IInc
 
     private static IDictionary<string, string> BuildAliasMap(Type type, int maxDepth)
     {
-        // Reuse the scanners to gather alias info
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        // Orderable aliases
         var orderablesWithAliases = OrderablePropertyScanner.GetOrderablePropertiesWithAlias(type, maxDepth);
-        foreach (var kv in orderablesWithAliases)
+
+        foreach (var aliasMetadata in orderablesWithAliases)
         {
-            // kv.Key = alias or property name, kv.Value = actualPath
-            if (!map.ContainsKey(kv.Key))
+            // aliasMetadata.Alias = alias, aliasMetadata.Path = actualPath
+            if (aliasMetadata.Alias is not null && !map.ContainsKey(aliasMetadata.Alias))
             {
-                map[kv.Key] = kv.Value;
+                map[aliasMetadata.Alias] = aliasMetadata.Path;
             }
         }
 
         var includesWithAliases = IncludePathScanner.GetIncludePathsWithAlias(type, maxDepth);
 
-        foreach (var kv in includesWithAliases)
+        foreach (var aliasMetadata in includesWithAliases)
         {
-            if (!map.ContainsKey(kv.Key))
+            if (aliasMetadata.Alias is not null && !map.ContainsKey(aliasMetadata.Alias))
             {
-                map[kv.Key] = kv.Value;
+                map[aliasMetadata.Alias] = aliasMetadata.Path;
             }
         }
 
