@@ -2,7 +2,7 @@
 
 namespace TinyRepository.Extensions;
 
-internal static class XmlCommentsReader
+public static class XmlCommentsReader
 {
     public static string? GetPropertySummary(Type type, string propertyName)
     {
