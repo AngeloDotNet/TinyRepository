@@ -9,12 +9,16 @@ public class MetadataService(int maxDepth = 5, params Assembly[] assemblies) : I
 {
     private readonly Assembly[] assemblies = (assemblies == null || assemblies.Length == 0) ? [Assembly.GetCallingAssembly()] : assemblies;
     private readonly int maxDepth = maxDepth <= 0 ? 5 : maxDepth;
+
     private readonly Lazy<Dictionary<string, Type>> typesBySimpleName = new Lazy<Dictionary<string, Type>>(() =>
     {
         return assemblies
             .SelectMany(a => a.GetTypes())
-            .Where(t => t.IsClass && !t.IsAbstract)
-            .ToDictionary(t => t.Name, t => t, StringComparer.OrdinalIgnoreCase);
+            .Where(t => t.IsClass && !t.IsAbstract
+                        && !t.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), false)
+                        && !t.Name.StartsWith(value: "<"))
+            .GroupBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
     });
 
     public Task<EntityWhitelistDto?> GetEntityWhitelistAsync(string entityName)
@@ -76,7 +80,11 @@ public class MetadataService(int maxDepth = 5, params Assembly[] assemblies) : I
 
     private Type? FindTypeByName(string entityName)
     {
-        if (typesBySimpleName.Value.TryGetValue(entityName, out var t)) return t;
+        if (typesBySimpleName.Value.TryGetValue(entityName, out var t))
+        {
+            return t;
+        }
+
         // try full name
         var full = assemblies.SelectMany(a => a.GetTypes()).FirstOrDefault(x => string.Equals(x.FullName, entityName, StringComparison.OrdinalIgnoreCase));
         return full;
