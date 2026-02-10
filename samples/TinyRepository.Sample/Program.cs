@@ -231,28 +231,13 @@ public class Program
         .Produces<EntityWhitelistDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
 
-        app.MapGet("/metadata/entities", async (IMetadataService metadata) =>
+        metadataApi.MapGet("/entities", async (IMetadataService metadata) =>
         {
             var names = await metadata.GetAllEntityNamesAsync();
             return Results.Ok(names);
         })
         .WithName("GetEntities")
         .Produces<string[]>(StatusCodes.Status200OK);
-
-        app.MapGet("/metadata/entities/{name}/whitelist", async (string name, IMetadataService metadata) =>
-        {
-            var dto = await metadata.GetEntityWhitelistAsync(name);
-
-            if (dto == null)
-            {
-                return Results.NotFound(new { message = $"Entity '{name}' not found" });
-            }
-
-            return Results.Ok(dto);
-        })
-        .WithName("GetEntityWhitelist")
-        .Produces<EntityWhitelistDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound);
 
         #endregion
 
