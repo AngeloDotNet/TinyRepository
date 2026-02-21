@@ -4,8 +4,47 @@ using TinyRepository.Metadata.Interfaces;
 
 namespace TinyRepository.Filters;
 
+/// <summary>
+/// An <see cref="IOperationFilter"/> that enriches OpenAPI operation parameter descriptions
+/// with metadata-driven information (for example available sort and include aliases).
+/// </summary>
+/// <remarks>
+/// This filter augments the Swagger/OpenAPI documentation for endpoints by appending
+/// available alias information to request parameters named <c>sort</c>, <c>include</c> or <c>includes</c>.
+///
+/// Operation:
+/// 1. If the operation has no parameters, the filter returns immediately.
+/// 2. The filter attempts to discover the associated entity name:
+///    a. First, it looks for an <c>EntityNameAttribute</c> in the endpoint metadata and reads its <c>EntityName</c> property.
+///    b. If not found, it falls back to the first segment of the API relative path and converts it to a singular,
+///       PascalCase entity name (previous behavior).
+/// 3. If no entity name can be determined, the operation is left unchanged.
+/// 4. If an entity name is discovered, the filter synchronously calls
+///    <see cref="IMetadataService.GetEntityWhitelistAsync(string)"/> to obtain the whitelist DTO for the entity.
+///    If the DTO is null, the operation is left unchanged.
+/// 5. For each operation parameter:
+///    - If the parameter name is <c>sort</c> (case-insensitive), the filter appends available sort aliases.
+///    - If the parameter name is <c>include</c> or <c>includes</c> (case-insensitive), the filter appends available include aliases.
+///
+/// Notes:
+/// - This implementation uses <c>GetAwaiter().GetResult()</c> to call an async metadata API synchronously; ensure the <see cref="IMetadataService"/>
+///   is safe to be called in this manner and consider replacing with an asynchronous approach if appropriate.
+/// - The filter is intended to be registered with Swashbuckle/SwaggerGen so that parameter descriptions in the generated
+///   OpenAPI document include helpful alias information for API consumers.
+/// </remarks>
+/// <example>
+/// <code>
+/// // Example registration in Program.cs / Startup.cs:
+/// services.AddSwaggerGen(c =>
+/// {
+///     c.OperationFilter&lt;MetadataOperationFilter&gt;();
+/// });
+/// </code>
+/// </example>
+/// <param name="metadata">The metadata service used to resolve entity whitelist and alias information.</param>
 public class MetadataOperationFilter(IMetadataService metadata) : IOperationFilter
 {
+    /// <inheritdoc />
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
         if (operation.Parameters == null || operation.Parameters.Count == 0)
@@ -13,7 +52,7 @@ public class MetadataOperationFilter(IMetadataService metadata) : IOperationFilt
             return;
         }
 
-        // 1) prova a leggere EntityNameAttribute nelle metadata dell'endpoint
+        // 1) try to read EntityNameAttribute from endpoint metadata
         string? entityName = null;
 
         try
@@ -38,7 +77,7 @@ public class MetadataOperationFilter(IMetadataService metadata) : IOperationFilt
         }
         catch { /* ignore */ }
 
-        // 2) se non trovato, prova a dedurre dal route (previous behavior)
+        // 2) if not found, try to deduce from the route (previous behavior)
         if (entityName == null)
         {
             var relativePath = context.ApiDescription.RelativePath ?? string.Empty;
